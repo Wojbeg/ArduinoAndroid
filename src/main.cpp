@@ -25,16 +25,12 @@ constexpr int BLUE_LED = 0;
 #define DHTTYPE DHT11
 
 enum class State{
-  st_0,
-  st_1_cmd,
-  st_2_length,
-  st_3_data
+  st_0,               //waiting Sync word
+  st_1_cmd,           //Waiting CMD
+  st_2_length,        //Receiving Length for CMD_03_TEXT
+  st_3_data           //Receiving Data for CMD_03_TEXT
 };
 
-constexpr int ST_0 = 0;      //waiting Sync word
-constexpr int ST_1_CMD = 1;  //Waiting CMD
-constexpr int ST_2_LENGTH= 2;//Receiving Length for CMD_03_TEXT
-constexpr int ST_3_DATA= 3;  //Receiving Data for CMD_03_TEXT
 // const byte IGNORE_00 = 0x00;
 
 // const byte SYNC_WORD = 0xFF;
