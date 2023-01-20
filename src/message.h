@@ -3,23 +3,25 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <transferData.h>
+#include <array>
 
 class Message : public TransferData {
     private:
-        float temperature;
-        float humidity;
-        int colors[3];
-        boolean isLedOn;
-        String ip;
-    
-    public:
-        Message(float temperature, float humidity, boolean isLedOn, String ip, std::initializer_list<int> colors);
+        volatile float temperature;
+        volatile float humidity;
+        std::array<int, 3> colors;
+        bool isLedOn;
+        const String ip;
 
-        float getTemperature() const;
-        float getHumidity() const;
-        bool getIsLedOn() const;
-        const int* getColors() const;
-        String getIp();
+        static constexpr size_t COLORS_NUMBER = 3;
+    public:
+        Message(float temperature, float humidity, bool isLedOn, String ip, const std::initializer_list<int> & colors);
+
+        [[nodiscard]] FORCE_INLINE float getTemperature() const {return temperature;}
+        [[nodiscard]] FORCE_INLINE float getHumidity() const {return humidity;}
+        [[nodiscard]] FORCE_INLINE bool getIsLedOn() const {return isLedOn;}
+        [[nodiscard]] FORCE_INLINE const std::array<int,COLORS_NUMBER> & getColors() const {return colors;}
+        [[nodiscard]] FORCE_INLINE const String & getIp() const {return ip;}
 
         void toJson(JsonDocument& json, String& jsonString);
         void toJsonString(String name, JsonDocument& json, String& jsonString) override;
