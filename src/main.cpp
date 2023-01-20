@@ -12,8 +12,7 @@
 #include <ArduinoJson.h>
 #include "message.h"
 #include "transfer.h"
-
-using Byte = unsigned char;
+#include "utils/Byte.h"
 
 constexpr int SERIAL_SPEED = 115200;
 
@@ -303,11 +302,8 @@ void cmdHandle(Byte incomingByte) {
     case State::st_2_length:
       // buffer.concat("le ");
 
-      if(incomingByte < 0) {      // may our byte be negative? If so, we need to change definition of type Byte to signed char. On the other hand, in such a case
-        dataLength = 256 + incomingByte;  // Byte would handle values from -127 to 128 only
-      } else {
-        dataLength += incomingByte;
-      }
+      dataLength += incomingByte;
+
 
       if(dataLength > MAX_LENGTH){
         dataLength = MAX_LENGTH;
