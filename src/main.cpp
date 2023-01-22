@@ -1,3 +1,5 @@
+#include <exception>
+
 #include <Arduino.h>
 
 #include <ESP8266WiFi.h>
@@ -8,24 +10,27 @@
 #include <DHT_U.h>
 
 #include <ArduinoJson.h>
-#include <message.h>
-#include <transfer.h>
+#include "message.h"
+#include "transfer.h"
+#include "utils/Byte.h"
 
-#define SERIAL_SPEED 115200
+constexpr int SERIAL_SPEED = 115200;
 
-#define DHTPIN 2 
+constexpr int DHTPIN = 2;
 
-#define RED_LED 5
-#define GREEN_LED 4
-#define BLUE_LED 0
+constexpr int RED_LED = 5;
+constexpr int GREEN_LED = 4;
+constexpr int BLUE_LED = 0;
 
 #define DHTTYPE DHT11
 
+enum class State{
+  st_0,               //waiting Sync word
+  st_1_cmd,           //Waiting CMD
+  st_2_length,        //Receiving Length for CMD_03_TEXT
+  st_3_data           //Receiving Data for CMD_03_TEXT
+};
 
-const int ST_0 = 0;      //waiting Sync word
-const int ST_1_CMD = 1;  //Waiting CMD
-const int ST_2_LENGTH= 2;//Receiving Length for CMD_03_TEXT
-const int ST_3_DATA= 3;  //Receiving Data for CMD_03_TEXT
 // const byte IGNORE_00 = 0x00;
 
 // const byte SYNC_WORD = 0xFF;
@@ -34,17 +39,17 @@ const int ST_3_DATA= 3;  //Receiving Data for CMD_03_TEXT
 // const byte CMD_02_LEDOFF= 0x02;
 // const byte CMD_03_TEXT  = 0x03;
 
-const char SYNC_WORD = static_cast<char>(0x00);
-const char CMD_03_TEXT  = static_cast<char>(0x03);
-const char CMD_02_START_OF_TEXT  = static_cast<char>(0x02);
-const char CMD_05_LEDON = static_cast<char>(0x05);
-const char CMD_06_LEDOFF= static_cast<char>(0x06);
+constexpr Byte SYNC_WORD = static_cast<Byte>(0x00);
+constexpr Byte CMD_03_TEXT  = static_cast<Byte>(0x03);
+constexpr Byte CMD_02_START_OF_TEXT = static_cast<Byte>(0x02);
+constexpr Byte CMD_05_LEDON = static_cast<Byte>(0x05);
+constexpr Byte CMD_06_LEDOFF= static_cast<Byte>(0x06);
 
-int cmdState;
+State cmdState;
 int dataIndex;
 
-const int MAX_LENGTH = 1024;
-char data[MAX_LENGTH];
+constexpr int MAX_LENGTH = 1024;
+std::array<Byte, MAX_LENGTH> data;
 int dataLength;
 
 
@@ -68,7 +73,7 @@ int redValue = 0;
 int greenValue = 0;
 int blueValue = 0;
 
-String buffer = "";
+String buffer;  // string (at least std string) is empty by default; no need to assign empty string to it
 // String textBuffer = "";
 
 
@@ -134,6 +139,7 @@ void setupWifi() {
   Serial.println("\n");
 }
 
+
 String SendHTML() {
   String ptr = "<!DOCTYPE html>\n";
   ptr +="<html>\n";
@@ -184,7 +190,8 @@ String SendHTML() {
   return ptr;
 }
 
-int returnValidColor(int newValue) {
+
+[[nodiscard]] int returnValidColor(int newValue) {
   if (newValue < 0) {
     return 0;
   } else if (newValue > 255) {
@@ -207,7 +214,7 @@ void checkArgs() {
     } else {
       Serial.println("Unknown argument: " + server.arg(i));
     }
-    
+
   }
 
 }
@@ -246,10 +253,10 @@ void handleJson() {
 
 }
 
-void cmdHandle(char incomingByte) {
+void cmdHandle(Byte incomingByte) {
 
-  if (incomingByte == SYNC_WORD) {
-    cmdState = ST_1_CMD;
+  if (incomingByte == SYNC_WORD || incomingByte == CMD_02_START_OF_TEXT) {
+    cmdState = State::st_3_data;
     // buffer.concat("s ");
     return;
   }
@@ -262,15 +269,9 @@ void cmdHandle(char incomingByte) {
   // char character = char (incomingByte);
   // buffer.concat(&character);
 
-  if(incomingByte == CMD_02_START_OF_TEXT) {
-    cmdState = ST_3_DATA;
-    // buffer.concat("st ");
-    return;
-  }
-
   switch (cmdState)
   {
-    case ST_1_CMD: {
+    case State::st_1_cmd:
       switch (incomingByte)
       {
         case CMD_05_LEDON:
@@ -283,47 +284,38 @@ void cmdHandle(char incomingByte) {
           break;
         case CMD_03_TEXT:
           // buffer.concat("tx ");
-          for(int i=0; i < MAX_LENGTH; i++){
-            data[i] = 0;
-          }
-    
-          cmdState = ST_2_LENGTH;
+          data.fill('\0');
+
+          cmdState = State::st_2_length;
           dataIndex = 0;
           dataLength = 0;
           break;
         default:
-          cmdState = ST_0;
+          cmdState = State::st_0;
       }
-
-    }
     break;
 
-    case ST_2_LENGTH:{
+    case State::st_2_length:
       // buffer.concat("le ");
 
-      if(incomingByte < 0) {
-        dataLength = 256 + incomingByte;
-      } else {
-        dataLength += incomingByte;
-      }
+      dataLength += incomingByte;
+
 
       if(dataLength > MAX_LENGTH){
         dataLength = MAX_LENGTH;
       }
 
-    }
-    break;
+      break;
 
-    case ST_3_DATA:{
+    case State::st_3_data:
       // buffer.concat("d ");
 
       data[dataIndex] = incomingByte;
       dataIndex++;
-
       // buffer.concat(incomingByte);
-      
-      if(dataIndex==dataLength){
-        cmdState = ST_0;
+
+      if(dataIndex == dataLength){
+        cmdState = State::st_0;
 
         // buffer = data;
 
@@ -332,13 +324,14 @@ void cmdHandle(char incomingByte) {
         // from char to parse json
 
         handleJson();
-
       }
-    }
-    break;
+      break;
+
+    default:
+      Serial.println("UNEXCPECTED STATE IN CMDSTATE");
 
   }
-  
+
 }
 
 ////////////////////////////////////////////
@@ -427,7 +420,7 @@ void updateDhtSensor() {
 void printSerial() {
   static unsigned long last_serial_update = 0UL;
 
-  if(millis() - last_serial_update >= two_seconds) {
+  if(millis() - last_serial_update >= two_seconds) {  // we should use std::chrono here but it would be harder to use so I'm ok with millis but consider it please
 
     // Serial.write("Temperature: ");
 
@@ -437,7 +430,7 @@ void printSerial() {
     // Serial.write("°C\n");
 
     // Serial.write("Humidity: ");
-    
+
     // dtostrf(relativeHumadity, 6, 2, destination);
     // Serial.write(destination);
     // Serial.write("%\n");
@@ -450,7 +443,7 @@ void printSerial() {
     // Serial.write(itoa(blueValue, destination, 10));
     // Serial.write(")\n");
 
-    jsonData = "";
+    jsonData.clear();
     Message message(temperature, relativeHumadity, isLedWorking, myIP, {redValue, greenValue, blueValue});
     Transfer transfer("info", &message);
 
@@ -488,7 +481,7 @@ void loop() {
     while (Serial.available() > 0) {
 
 
-    char data = Serial.read();
+    Byte data = Serial.read();
 
     cmdHandle(data);
     // textBuffer.concat(data);
@@ -502,7 +495,7 @@ void loop() {
     // } else {
     //   blueValue = color;
     // }
-      
+
     }
 
   }

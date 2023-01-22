@@ -1,7 +1,7 @@
 #include <transfer.h>
 
 Transfer::Transfer(String type, TransferData* data)
-    :type(type), data(data)
+    :type(std::move(type)), data(data)
 {
 
 }

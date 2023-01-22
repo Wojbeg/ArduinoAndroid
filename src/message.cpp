@@ -1,5 +1,5 @@
-#include <message.h>
-#include <transferData.h>
+#include "message.h"
+#include "transferData.h"
 
 // Message::Message(float temperature, float humidity, boolean isLedOn, int colors[3])
 //     : temperature(temperature), humidity(humidity), isLedOn(isLedOn)
@@ -9,33 +9,13 @@
 //     }
 // }
 
-Message::Message(float temperature, float humidity, bool isLedOn, String ip, std::initializer_list<int> colors)
-    : temperature(temperature), humidity(humidity), isLedOn(isLedOn), ip(ip)
+Message::Message(float temperature, float humidity, bool isLedOn, String ip, const std::initializer_list<int> & colors)
+    : temperature(temperature), humidity(humidity), isLedOn(isLedOn), ip(std::move(ip))
 {
     int i = 0;
-    for (int color : colors) {
+    for (auto color : colors) {
         this->colors[i++] = color;
     }
-}
-
-float Message::getTemperature() const {
-    return temperature;
-}
-
-float Message::getHumidity() const {
-    return humidity;
-}
-
-bool Message::getIsLedOn() const {
-    return isLedOn;
-}
-
-const int* Message::getColors() const {
-    return colors;
-}
-
-String Message::getIp() {
-    return ip;
 }
 
 void Message::toJson(JsonDocument& json, String& jsonString) {
@@ -44,10 +24,8 @@ void Message::toJson(JsonDocument& json, String& jsonString) {
     json["isLedOn"] = getIsLedOn();
     json["ip"] = getIp();
 
-    const int* colors = getColors();
-    json["colors"][0] = colors[0];
-    json["colors"][1] = colors[1];
-    json["colors"][2] = colors[2];
+    for(int i = 0; i < COLORS_NUMBER; i++)
+        json["colors"][i] = colors[i];
 
     serializeJson(json, jsonString);
 }
@@ -58,10 +36,8 @@ void Message::toJsonString(String name, JsonDocument& json, String& jsonString) 
     json[name]["isLedOn"] = getIsLedOn();
     json[name]["ip"] = getIp();
 
-    const int* colors = getColors();
-    json[name]["colors"][0] = colors[0];
-    json[name]["colors"][1] = colors[1];
-    json[name]["colors"][2] = colors[2];
+    for(int i = 0; i < COLORS_NUMBER; i++)
+        json[name]["colors"][i] = colors[i];
 }
 
 void Message::addObjectToJson(JsonDocument& json, String& jsonString) {
@@ -72,10 +48,8 @@ void Message::addObjectToJson(JsonDocument& json, String& jsonString) {
     obj["isLedOn"] = getIsLedOn();
     obj["ip"] = getIp();
 
-    const int* colors = getColors();
-    obj["colors"][0] = colors[0];
-    obj["colors"][1] = colors[1];
-    obj["colors"][2] = colors[2];
+    for(int i = 0; i < COLORS_NUMBER; i++)
+        obj["colors"][i] = colors[i];
 }
 
 

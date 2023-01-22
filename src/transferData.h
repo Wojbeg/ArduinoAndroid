@@ -4,11 +4,13 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
+
+
 class TransferData
 {
     public:
-        virtual void addObjectToJson(JsonDocument& json, String& jsonString);
-        virtual void toJsonString(String name, JsonDocument& json, String& jsonString);
+        virtual void addObjectToJson(JsonDocument& json, String& jsonString) = 0;
+        virtual void toJsonString(String name, JsonDocument& json, String& jsonString) = 0;
 };
 
 #endif
